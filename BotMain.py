@@ -34,6 +34,7 @@ MSG_STATUS = "* 현재 사용자 : %d\n* 최신 업데이트 : %s\n* 공지사�
 
 # Enable logging
 logging.basicConfig(
+        filename="./BotMain.log",
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
         level=logging.INFO)
 

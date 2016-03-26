@@ -18,15 +18,19 @@ limitations under the License.
 from telegram.ext import Updater
 import logging
 import NoticeReader
+import datetime
 
 __VERSION__ = "0.0.1"
 DEFAULT_LIST_NUM = 5
 
 MSG_START = "고려대학교 컴퓨터정보통신대학원 공지사항 봇 %s\n만든이 : 39기 이주현(ppiazi@gmail.com)\nhttps://github.com/ppiazi/korea_univ_gscit_notice_bot" % __VERSION__
-MSG_HELP = "사용법: /list <num of notices>\n값이 잘못되거나 아무것도 안 넣으면 10개를 보여줌."
+MSG_HELP = """
+/list <num of notices> : 입력 개수만큼 공지사항을 보여줌.
+/help : 도움말을 보여줌.
+/status : 현재 봇 상태를 보여줌."""
 MSG_NOTICE_USAGE_ERROR = "입력된 값이 잘못되었습니다."
 MSG_NOTICE_FMT = "ID : %d\n날짜 : %s\n제목 : %s\n작성자 : %s\nURL : %s\n"
-MSG_STATUS = "* 현재 사용자 : %d\n* 최신 업데이트 : %s"
+MSG_STATUS = "* 현재 사용자 : %d\n* 최신 업데이트 : %s\n* 공지사항 개수 : %d"
 
 # Enable logging
 logging.basicConfig(
@@ -44,16 +48,25 @@ g_last_notice_date = "2016-03-01 00:00:00"
 g_dict_chat_id = {}
 
 def start(bot, update):
+    checkChatId(update.message.chat_id)
+    bot.sendMessage(update.message.chat_id, text=MSG_START)
+
+def checkChatId(chat_id):
     global g_dict_chat_id
 
-    bot.sendMessage(update.message.chat_id, text=MSG_START)
-    g_dict_chat_id[update.message.chat_id] = 1
+    try:
+        g_dict_chat_id[chat_id] = g_dict_chat_id[chat_id]
+    except KeyError:
+        #첫 로그인을 하면 가장 최근 읽은 공지사항은 3개월 전 날짜로 설정함.
+        d = datetime.datetime.today()
+        td = datetime.timedelta(days=90)
+        d = d - td
+
+        g_dict_chat_id[chat_id] = d    
 
 def help(bot, update):
-    global g_dict_chat_id
-
+    checkChatId(update.message.chat_id)
     bot.sendMessage(update.message.chat_id, text=MSG_HELP)
-    g_dict_chat_id[update.message.chat_id] = 1
 
 def updateListenerList(bot):
     """
@@ -90,11 +103,11 @@ def status(bot, update):
     :return:
     """
     global g_last_notice_date
+    global g_notice_list
     global g_dict_chat_id
 
-    g_dict_chat_id[update.message.chat_id] = 1
-
-    bot.sendMessage(update.message.chat_id, text=MSG_STATUS % (len(g_dict_chat_id.keys()), g_last_notice_date))
+    checkChatId(update.message.chat_id)
+    bot.sendMessage(update.message.chat_id, text=MSG_STATUS % (len(g_dict_chat_id.keys()), str(g_dict_chat_id[update.message.chat_id]), len(g_notice_list)))
 
 def checkNotice(bot):
     """
@@ -102,16 +115,22 @@ def checkNotice(bot):
 
     :return:
     """
-    new_item_list = updateNoticeList()
-    dict_chat_id = updateListenerList(bot)
+    global g_notice_list
+    global g_dict_chat_id
 
-    for n_item in new_item_list:
+    updateNoticeList()
+    # dict_chat_id = updateListenerList(bot)
+
+    for n_item in g_notice_list:
         tmp_msg_1 = makeNoticeSummary(g_notice_list.index(n_item), n_item)
-        logger.info(tmp_msg_1)
+        # logger.info(tmp_msg_1)
 
-        for t_chat_id in dict_chat_id.keys():
-            chat_id = t_chat_id
-            bot.sendMessage(chat_id, text=tmp_msg_1)
+        for t_chat_id in g_dict_chat_id.keys():
+            temp_date_str = str(g_dict_chat_id[t_chat_id])
+            if n_item['published'] > temp_date_str:
+                logger.info("sendMessage to %d (%s : %s)" % (t_chat_id, n_item['published'], n_item['title']))
+                bot.sendMessage(t_chat_id, text=tmp_msg_1)
+                g_dict_chat_id[t_chat_id] = n_item['published']
 
 def updateNoticeList():
     """
@@ -127,17 +146,6 @@ def updateNoticeList():
     logger.info("Last Notice Date : %s" % g_last_notice_date)
 
     g_notice_list = g_notice_reader.readAll()
-    new_item_list = []
-
-    for n_item in g_notice_list:
-        if n_item['published'] <= g_last_notice_date:
-            continue
-        new_item_list.append(n_item)
-        g_last_notice_date = n_item['published']
-
-    logger.info("New Article : (%d) / Last Updated(%s)" % (len(new_item_list), g_last_notice_date))
-
-    return new_item_list
 
 def makeNoticeSummary(i, n_item):
     """
@@ -162,8 +170,7 @@ def listNotice(bot, update, args):
     global g_notice_list
     global g_dict_chat_id
 
-    g_dict_chat_id[update.message.chat_id] = 1
-
+    checkChatId(update.message.chat_id)
     chat_id = update.message.chat_id
     # args[0] should contain the time for the timer in seconds
     if len(args) == 0:
@@ -184,14 +191,17 @@ def listNotice(bot, update, args):
     if num >= len(g_notice_list):
         num = g_notice_list
 
+    last_date = ""
     for n_item in g_notice_list[num * -1:]:
         tmp_msg_1 = makeNoticeSummary(g_notice_list.index(n_item), n_item)
         logger.info(tmp_msg_1)
         bot.sendMessage(chat_id, text=tmp_msg_1)
+        last_date = n_item['published']
 
         i = i + 1
         if i == num:
             break
+    g_dict_chat_id[chat_id] = last_date
 
 def readNotice(bot, update, args):
     """
@@ -241,12 +251,13 @@ def main():
     dp.addTelegramCommandHandler("read", readNotice)
     dp.addTelegramCommandHandler("r", readNotice)
     dp.addTelegramCommandHandler("status", status)
+    dp.addTelegramCommandHandler("s", status)
 
     # log all errors
     dp.addErrorHandler(error)
 
-    #updateNoticeList()
-    job_queue.put(checkNotice, 10, repeat=True)
+    updateNoticeList()
+    job_queue.put(checkNotice, 60*60*24, repeat=True)
 
     # Start the Bot
     updater.start_polling()

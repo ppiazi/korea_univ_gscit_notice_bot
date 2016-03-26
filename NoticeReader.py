@@ -29,13 +29,26 @@ class KoreaUnivGscitNoticeReader:
             logger.info("Try to open %s" % self.feed_url)
             self.rss_reader = feedparser.parse(self.feed_url)
             self.feed_list = self.rss_reader['items']
-            self.feed_list.reverse()
+
+            # published 값으로 descending 정렬하기 위함임.
+            # 간혹 published 값으로 정렬되지 않은 경우가 있음.
+            temp_dict = {}
+            for i in self.feed_list:
+                temp_dict[i['published'] + i['title']] = i
+
+            keylist = list(temp_dict.keys())
+            keylist.sort()
+
+            final_list = []
+            for key in keylist:
+                final_list.append(temp_dict[key])
 
             logger.info("Successfully read %d items." % len(self.feed_list))
         except:
             logger.error("%s is not valid." % self.feed_url)
             self.rss_reader = None
             self.feed_list = None
+            final_list = None
 
-        return self.feed_list
+        return final_list
 

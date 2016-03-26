@@ -25,7 +25,8 @@ DEFAULT_LIST_NUM = 5
 
 MSG_START = "고려대학교 컴퓨터정보통신대학원 공지사항 봇 %s\n만든이 : 39기 이주현(ppiazi@gmail.com)\nhttps://github.com/ppiazi/korea_univ_gscit_notice_bot" % __VERSION__
 MSG_HELP = """
-/list <num of notices> : 입력 개수만큼 공지사항을 보여줌.
+버전 : %s
+/list <num of notices> : 입력 개수만큼 공지사항을 보여줌. 인자가 없으면 기본 개수로 출력.
 /help : 도움말을 보여줌.
 /status : 현재 봇 상태를 보여줌."""
 MSG_NOTICE_USAGE_ERROR = "입력된 값이 잘못되었습니다."
@@ -67,7 +68,7 @@ def checkChatId(chat_id):
 
 def help(bot, update):
     checkChatId(update.message.chat_id)
-    bot.sendMessage(update.message.chat_id, text=MSG_HELP)
+    bot.sendMessage(update.message.chat_id, text=MSG_HELP % __VERSION__)
 
 def updateListenerList(bot):
     """

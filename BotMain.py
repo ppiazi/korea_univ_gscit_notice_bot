@@ -79,7 +79,7 @@ def status(bot, update):
     global g_chat_id_db
 
     l = g_chat_id_db.getAllChatIdDb()
-    s = g_chat_id_db.getChatIdInfo()
+    s = g_chat_id_db.getChatIdInfo(update.message.chat_id)
 
     checkChatId(update.message.chat_id)
     bot.sendMessage(update.message.chat_id, text=MSG_STATUS % (len(l), str(s), len(g_notice_list)))

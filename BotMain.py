@@ -55,7 +55,7 @@ g_chat_id_db = ChatIdDb()
 
 def start(bot, update):
     checkChatId(update.message.chat_id)
-    bot.sendMessage(update.message.chat_id, text=MSG_START)
+    sendBotMessage(bot, update.message.chat_id, MSG_START)
 
 def checkChatId(chat_id):
     global g_chat_id_db
@@ -64,7 +64,15 @@ def checkChatId(chat_id):
 
 def help(bot, update):
     checkChatId(update.message.chat_id)
-    bot.sendMessage(update.message.chat_id, text=MSG_HELP % __VERSION__)
+    sendBotMessage(bot, update.message.chat_id, MSG_HELP % __VERSION__)
+
+def sendBotMessage(bot, chat_id, msg):
+    try:
+        bot.sendMessage(chat_id, text=msg)
+    except Exception as e:
+        logger.error(e)
+
+        g_chat_id_db.removeChatId(chat_id)
 
 def status(bot, update):
     """
@@ -82,7 +90,8 @@ def status(bot, update):
     s = g_chat_id_db.getChatIdInfo(update.message.chat_id)
 
     checkChatId(update.message.chat_id)
-    bot.sendMessage(update.message.chat_id, text=MSG_STATUS % (len(l), str(s), len(g_notice_list)))
+
+    sendBotMessage(bot, update.message.chat_id, MSG_STATUS % (len(l), str(s), len(g_notice_list)))
 
 def checkNotice(bot):
     """
@@ -106,7 +115,7 @@ def checkNotice(bot):
             temp_date_str = t_chat_id[1]
             if n_item['published'] > temp_date_str:
                 logger.info("sendMessage to %d (%s : %s)" % (t_chat_id, n_item['published'], n_item['title']))
-                bot.sendMessage(t_chat_id, text=tmp_msg_1)
+                sendBotMessage(bot, t_chat_id, tmp_msg_1)
                 g_chat_id_db.updateChatId(t_chat_id, n_item['published'])
 
 def updateNoticeList():
@@ -157,11 +166,11 @@ def listNotice(bot, update, args):
             num = int(args[0])
         except:
             num = DEFAULT_LIST_NUM
-            bot.sendMessage(chat_id, text=MSG_NOTICE_USAGE_ERROR)
-            bot.sendMessage(chat_id, text=MSG_HELP)
+            sendBotMessage(bot, chat_id, MSG_NOTICE_USAGE_ERROR)
+            sendBotMessage(bot, chat_id, MSG_HELP)
 
         if num < 0:
-            bot.sendMessage(chat_id, text=MSG_NOTICE_USAGE_ERROR)
+            sendBotMessage(bot, chat_id, MSG_NOTICE_USAGE_ERROR)
             num = DEFAULT_LIST_NUM
 
     i = 0
@@ -172,7 +181,7 @@ def listNotice(bot, update, args):
     for n_item in g_notice_list[num * -1:]:
         tmp_msg_1 = makeNoticeSummary(g_notice_list.index(n_item), n_item)
         logger.info(tmp_msg_1)
-        bot.sendMessage(chat_id, text=tmp_msg_1)
+        sendBotMessage(bot, chat_id, tmp_msg_1)
         last_date = n_item['published']
 
         i = i + 1

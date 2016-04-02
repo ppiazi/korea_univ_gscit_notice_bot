@@ -17,11 +17,11 @@ limitations under the License.
 
 from telegram.ext import Updater
 import logging
-import NoticeReader
 import datetime
 
-__VERSION__ = "0.0.1"
-DEFAULT_LIST_NUM = 5
+__VERSION__ = "0.0.2"
+DEFAULT_LIST_NUM = 3
+NOTICE_CHECK_PERIOD_H = 6
 
 MSG_START = "고려대학교 컴퓨터정보통신대학원 공지사항 봇 %s\n만든이 : 39기 이주현(ppiazi@gmail.com)\nhttps://github.com/ppiazi/korea_univ_gscit_notice_bot" % __VERSION__
 MSG_HELP = """
@@ -35,7 +35,7 @@ MSG_STATUS = "* 현재 사용자 : %d\n* 최신 업데이트 : %s\n* 공지사�
 
 # Enable logging
 logging.basicConfig(
-        filename="./BotMain.log",
+#        filename="./BotMain.log",
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
         level=logging.INFO)
 
@@ -47,54 +47,24 @@ g_bot = None
 g_notice_reader = None
 g_notice_list = []
 g_last_notice_date = "2016-03-01 00:00:00"
-g_dict_chat_id = {}
+
+import NoticeReader
+from BotMainDb import ChatIdDb
+
+g_chat_id_db = ChatIdDb()
 
 def start(bot, update):
     checkChatId(update.message.chat_id)
     bot.sendMessage(update.message.chat_id, text=MSG_START)
 
 def checkChatId(chat_id):
-    global g_dict_chat_id
+    global g_chat_id_db
 
-    try:
-        g_dict_chat_id[chat_id] = g_dict_chat_id[chat_id]
-    except KeyError:
-        #첫 로그인을 하면 가장 최근 읽은 공지사항은 3개월 전 날짜로 설정함.
-        d = datetime.datetime.today()
-        td = datetime.timedelta(days=90)
-        d = d - td
-
-        g_dict_chat_id[chat_id] = d    
+    g_chat_id_db.getChatIdInfo(chat_id)
 
 def help(bot, update):
     checkChatId(update.message.chat_id)
     bot.sendMessage(update.message.chat_id, text=MSG_HELP % __VERSION__)
-
-def updateListenerList(bot):
-    """
-    현재 bot과 대화하고 있는 chat_id를 수집한다.
-
-    :param bot:
-    :return:
-    """
-    global g_dict_chat_id
-
-    """
-    updates = bot.getUpdates()
-    dict_chat_id = {}
-    for u in updates:
-        chat_id = u.message.chat_id
-        message = u.message.text
-
-        logger.info(str(chat_id) + message)
-
-        try:
-            dict_chat_id[chat_id] = dict_chat_id[chat_id] + 1
-        except KeyError:
-            dict_chat_id[chat_id] = 1
-    """
-
-    return g_dict_chat_id
 
 def status(bot, update):
     """
@@ -106,10 +76,13 @@ def status(bot, update):
     """
     global g_last_notice_date
     global g_notice_list
-    global g_dict_chat_id
+    global g_chat_id_db
+
+    l = g_chat_id_db.getAllChatIdDb()
+    s = g_chat_id_db.getChatIdInfo()
 
     checkChatId(update.message.chat_id)
-    bot.sendMessage(update.message.chat_id, text=MSG_STATUS % (len(g_dict_chat_id.keys()), str(g_dict_chat_id[update.message.chat_id]), len(g_notice_list)))
+    bot.sendMessage(update.message.chat_id, text=MSG_STATUS % (len(l), str(s), len(g_notice_list)))
 
 def checkNotice(bot):
     """
@@ -118,21 +91,23 @@ def checkNotice(bot):
     :return:
     """
     global g_notice_list
-    global g_dict_chat_id
+    global g_chat_id_db
 
     updateNoticeList()
     # dict_chat_id = updateListenerList(bot)
+
+    l = g_chat_id_db.getAllList()
 
     for n_item in g_notice_list:
         tmp_msg_1 = makeNoticeSummary(g_notice_list.index(n_item), n_item)
         # logger.info(tmp_msg_1)
 
-        for t_chat_id in g_dict_chat_id.keys():
-            temp_date_str = str(g_dict_chat_id[t_chat_id])
+        for t_chat_id in l.keys():
+            temp_date_str = t_chat_id[1]
             if n_item['published'] > temp_date_str:
                 logger.info("sendMessage to %d (%s : %s)" % (t_chat_id, n_item['published'], n_item['title']))
                 bot.sendMessage(t_chat_id, text=tmp_msg_1)
-                g_dict_chat_id[t_chat_id] = n_item['published']
+                g_chat_id_db.updateChatId(t_chat_id, n_item['published'])
 
 def updateNoticeList():
     """
@@ -170,7 +145,7 @@ def listNotice(bot, update, args):
     :return: 없음.
     """
     global g_notice_list
-    global g_dict_chat_id
+    global g_chat_id_db
 
     checkChatId(update.message.chat_id)
     chat_id = update.message.chat_id
@@ -203,7 +178,7 @@ def listNotice(bot, update, args):
         i = i + 1
         if i == num:
             break
-    g_dict_chat_id[chat_id] = last_date
+    g_chat_id_db.updateChatId(chat_id, last_date)
 
 def readNotice(bot, update, args):
     """
@@ -219,6 +194,9 @@ def readNotice(bot, update, args):
     g_dict_chat_id[update.message.chat_id] = 1
 
     pass
+
+def handleNormalMessage(bot, update, error):
+    checkChatId(update.message.chat_id)
 
 def error(bot, update, error):
     logger.warn('Update "%s" caused error "%s"' % (update, error))
@@ -255,11 +233,15 @@ def main():
     dp.addTelegramCommandHandler("status", status)
     dp.addTelegramCommandHandler("s", status)
 
+    # on noncommand i.e message - echo the message on Telegram
+    dp.addTelegramMessageHandler(handleNormalMessage)
+
     # log all errors
     dp.addErrorHandler(error)
 
+    # init db
     updateNoticeList()
-    job_queue.put(checkNotice, 60*60*24, repeat=True)
+    job_queue.put(checkNotice, 60*60*NOTICE_CHECK_PERIOD_H, repeat=True)
 
     # Start the Bot
     updater.start_polling()

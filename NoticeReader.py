@@ -20,8 +20,9 @@ from BotMain import logger
 
 FEED_URL = "http://wizard.korea.ac.kr/rssList.jsp?siteId=gscit&boardId=861704"
 
+
 class KoreaUnivGscitNoticeReader:
-    def __init__(self, feed_url = FEED_URL):
+    def __init__(self, feed_url=FEED_URL):
         self.feed_url = feed_url
 
     def readAll(self):
@@ -51,4 +52,3 @@ class KoreaUnivGscitNoticeReader:
             final_list = None
 
         return final_list
-

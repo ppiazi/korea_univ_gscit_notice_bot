@@ -28,15 +28,14 @@ class ChatIdDb:
         self._load()
 
     def _load(self):
-        f = open(DEFAULT_CHAT_ID_DB, "rb")
-        if f == None:
-            # 파일이 없다면, 새롭게 만든다.
-            f.close()
+        try:
+            f = open(DEFAULT_CHAT_ID_DB, "rb")
 
-            self._save()
-        else:
             # 파일이 있다면, 기존 사용자를 로드한다.
             self._db = pickle.load(f)
+        except Exception as e:
+            logger.error(e)
+            self._save()
 
     def _save(self):
         f = open(DEFAULT_CHAT_ID_DB, "wb")

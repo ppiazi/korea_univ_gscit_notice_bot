@@ -105,7 +105,7 @@ def checkNotice(bot):
     updateNoticeList()
     # dict_chat_id = updateListenerList(bot)
 
-    l = g_chat_id_db.getAllList()
+    l = g_chat_id_db.getAllChatIdDb()
 
     for n_item in g_notice_list:
         tmp_msg_1 = makeNoticeSummary(g_notice_list.index(n_item), n_item)

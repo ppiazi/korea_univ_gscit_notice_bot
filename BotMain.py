@@ -178,15 +178,17 @@ def listNotice(bot, update, args):
         num = g_notice_list
 
     last_date = ""
+    tmp_msg = ""
     for n_item in g_notice_list[num * -1:]:
         tmp_msg_1 = makeNoticeSummary(g_notice_list.index(n_item), n_item)
-        logger.info(tmp_msg_1)
-        sendBotMessage(bot, chat_id, tmp_msg_1)
+        tmp_msg = tmp_msg + tmp_msg_1 + "\n"
         last_date = n_item['published']
 
         i = i + 1
         if i == num:
             break
+    logger.info(tmp_msg)
+    sendBotMessage(bot, chat_id, tmp_msg)
     g_chat_id_db.updateChatId(chat_id, last_date)
 
 def readNotice(bot, update, args):

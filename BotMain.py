@@ -112,7 +112,7 @@ def checkNotice(bot):
         # logger.info(tmp_msg_1)
 
         for t_chat_id in l.keys():
-            temp_date_str = t_chat_id[1]
+            temp_date_str = l[t_chat_id]
             if n_item['published'] > temp_date_str:
                 logger.info("sendMessage to %d (%s : %s)" % (t_chat_id, n_item['published'], n_item['title']))
                 sendBotMessage(bot, t_chat_id, tmp_msg_1)
